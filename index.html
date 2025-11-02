@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOT VIDEO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            perspective: 1000px;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .active-page {
+            display: block;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .channel-logo {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .channel-initial {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .site-logo {
+            height: 40px;
+            width: auto;
+        }
+        
+        /* YouTube-style video cards with 3D effects */
+        .video-card {
+            background-color: transparent;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.5s ease;
+            transform-style: preserve-3d;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .video-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .video-thumbnail {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            transform-style: preserve-3d;
+        }
+        
+        .video-thumbnail img {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .video-card:hover .video-thumbnail img {
+            transform: scale(1.05);
+        }
+        
+        .video-duration {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 2;
+        }
+        
+        .video-details {
+            display: flex;
+            gap: 12px;
+            padding: 0 8px 8px;
+            transform-style: preserve-3d;
+        }
+        
+        .video-info {
+            flex: 1;
+        }
+        
+        .video-title {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.4;
+            margin-bottom: 4px;
+            color: #0f0f0f;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            transition: color 0.3s ease;
+        }
+        
+        .video-card:hover .video-title {
+            color: #000000;
+        }
+        
+        /* Combined channel name and metadata in one line */
+        .video-channel-meta {
+            font-size: 14px;
+            color: #606060;
+            margin-bottom: 2px;
+        }
+        
+        @media (max-width: 768px) {
+            .video-title {
+                font-size: 14px;
+            }
+            
+            .video-channel-meta {
+                font-size: 13px;
+            }
+            
+            .video-card:hover {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 bg-white border-b border-gray-200 shadow-sm z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <div class="flex items-center cursor-pointer" id="home-btn">
+                <img src="https://envs.sh/vmK.jpg/IMG20251031319.jpg" alt="Site Logo" class="site-logo">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <!-- Homepage -->
+        <div id="home-page" class="page active-page fade-in">
+            <!-- Slider Section - Will be shown only if sliders exist in database -->
+            <div id="slider-section" class="hidden">
+                <!-- Slider content will be dynamically added here -->
+            </div>
+
+            <div id="loading-container" class="text-center py-8">
+                <div class="loading-spinner"></div>
+                <p class="text-gray-600 mt-2">Videos are loading...</p>
+            </div>
+            <div id="video-grid" class="video-grid grid grid-cols-1 gap-y-8 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-4 hidden">
+                <!-- Video cards will be added here -->
+            </div>
+            <div id="no-videos" class="text-center py-12 hidden">
+                <svg class="w-24 h-24 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">No videos</h3>
+                <p class="text-gray-500">No videos have been uploaded yet</p>
+            </div>
+        </div>
+
+        <!-- Download Page -->
+        <div id="download-page" class="page">
+            <!-- Download page content will be added here -->
+        </div>
+    </main>
+
+    <footer class="h-10"></footer>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGBPZkYJK_Pc0zQzcQUWi4piyOB6R7LJU",
+            authDomain: "daily-earn-30baa.firebaseapp.com",
+            databaseURL: "https://daily-earn-30baa-default-rtdb.firebaseio.com",
+            projectId: "daily-earn-30baa",
+            storageBucket: "daily-earn-30baa.firebasestorage.app",
+            messagingSenderId: "31113142345",
+            appId: "1:31113142345:web:3b8c3de638f8d2045a9f98",
+            measurementId: "G-HYNBH2M409"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Current page tracking
+        let currentPage = 'home-page';
+        let pageHistory = ['home-page'];
+
+        // Page load event
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load videos and sliders from Firebase
+            loadVideosFromFirebase();
+            loadSlidersFromFirebase();
+            
+            // Add event listeners
+            document.getElementById('home-btn').addEventListener('click', function() {
+                showPage('home-page');
+            });
+            
+            // Browser back button handling
+            window.addEventListener('popstate', function(event) {
+                if (pageHistory.length > 1) {
+                    pageHistory.pop();
+                    const prevPage = pageHistory[pageHistory.length - 1];
+                    showPage(prevPage, false);
+                }
+            });
+        });
+
+        // Load sliders from Firebase
+        function loadSlidersFromFirebase() {
+            database.ref('sliders').once('value')
+                .then(snapshot => {
+                    const slidersData = snapshot.val();
+                    
+                    if (slidersData && Object.keys(slidersData).length > 0) {
+                        renderSliders(slidersData);
+                    } else {
+                        // No sliders in database, hide slider section
+                        document.getElementById('slider-section').classList.add('hidden');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading sliders:', error);
+                    // Hide slider section on error
+                    document.getElementById('slider-section').classList.add('hidden');
+                });
+        }
+
+        // Render sliders
+        function renderSliders(slidersData) {
+            const sliderSection = document.getElementById('slider-section');
+            sliderSection.classList.remove('hidden');
+            
+            // Convert object to array
+            const sliders = Object.values(slidersData);
+            
+            // Create slider HTML
+            sliderSection.innerHTML = `
+                <div class="slider-container bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+                    <div class="slider flex transition-transform duration-500 ease-in-out h-full">
+                        ${sliders.map((slide, index) => `
+                            <div class="slide min-w-full h-full">
+                                ${slide.link ? 
+                                    `<a href="${slide.link}" target="_blank"><img src="${slide.image}" alt="Slider Image" class="w-full h-full object-cover"></a>` :
+                                    `<img src="${slide.image}" alt="Slider Image" class="w-full h-full object-cover">`
+                                }
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${sliders.length > 1 ? `
+                        <button class="slider-arrow prev absolute top-1/2 left-4 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all">
+                            <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <button class="slider-arrow next absolute top-1/2 right-4 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all">
+                            <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div class="slider-nav absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                            ${sliders.map((_, index) => `
+                                <div class="slider-dot w-3 h-3 rounded-full bg-white bg-opacity-50 cursor-pointer ${index === 0 ? 'bg-opacity-100' : ''}"></div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Add slider functionality if there's more than one slide
+            if (sliders.length > 1) {
+                initializeSlider();
+            }
+        }
+
+        // Initialize slider functionality
+        function initializeSlider() {
+            let currentSlide = 0;
+            const slider = document.querySelector('.slider');
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.slider-dot');
+            const prevBtn = document.querySelector('.slider-arrow.prev');
+            const nextBtn = document.querySelector('.slider-arrow.next');
+            
+            // Function to update slider position
+            function updateSlider() {
+                slider.style.transform = `translateX(-${currentSlide * 100}%)`;
+                
+                // Update dots
+                dots.forEach((dot, index) => {
+                    dot.classList.toggle('bg-opacity-100', index === currentSlide);
+                    dot.classList.toggle('bg-opacity-50', index !== currentSlide);
+                });
+            }
+            
+            // Next slide
+            function nextSlide() {
+                currentSlide = (currentSlide + 1) % slides.length;
+                updateSlider();
+            }
+            
+            // Previous slide
+            function prevSlide() {
+                currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+                updateSlider();
+            }
+            
+            // Go to specific slide
+            function goToSlide(index) {
+                currentSlide = index;
+                updateSlider();
+            }
+            
+            // Add event listeners
+            if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+            if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+            
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', () => goToSlide(index));
+            });
+            
+            // Auto slide if more than one slide
+            if (slides.length > 1) {
+                setInterval(nextSlide, 5000);
+            }
+        }
+
+        // Load videos from Firebase
+        function loadVideosFromFirebase() {
+            const loadingContainer = document.getElementById('loading-container');
+            const videoGrid = document.getElementById('video-grid');
+            const noVideos = document.getElementById('no-videos');
+            
+            database.ref('videos').once('value')
+                .then(snapshot => {
+                    loadingContainer.classList.add('hidden');
+                    
+                    const videos = snapshot.val();
+                    
+                    if (videos && Object.keys(videos).length > 0) {
+                        videoGrid.classList.remove('hidden');
+                        videoGrid.innerHTML = '';
+                        
+                        Object.keys(videos).forEach(key => {
+                            const video = videos[key];
+                            video.id = key;
+                            const videoCard = createVideoCard(video);
+                            videoGrid.appendChild(videoCard);
+                        });
+                    } else {
+                        noVideos.classList.remove('hidden');
+                    }
+                })
+                .catch(error => {
+                    loadingContainer.classList.add('hidden');
+                    noVideos.classList.remove('hidden');
+                    console.error('Error loading videos:', error);
+                });
+        }
+
+        // Create video card (YouTube style)
+        function createVideoCard(video) {
+            const card = document.createElement('div');
+            card.className = 'video-card';
+            card.setAttribute('data-video-id', video.id);
+            
+            // Create channel logo or initial
+            let channelLogoContent = '';
+            if (video.channelLogo) {
+                channelLogoContent = `<img src="${video.channelLogo}" alt="${video.channel} logo" class="channel-logo">`;
+            } else {
+                channelLogoContent = `<div class="channel-initial">${video.channel.charAt(0)}</div>`;
+            }
+            
+            // Combine channel name, views, and time in one line like YouTube
+            card.innerHTML = `
+                <div class="video-thumbnail">
+                    <img src="${video.image}" alt="${video.title}">
+                    <span class="video-duration">${video.duration}</span>
+                </div>
+                <div class="video-details">
+                    <div class="channel-logo-container">
+                        ${channelLogoContent}
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">${video.title}</h3>
+                        <p class="video-channel-meta">${video.channel} • ${video.views} • ${video.time}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add click event to video card
+            card.addEventListener('click', function() {
+                const videoId = this.getAttribute('data-video-id');
+                showDownloadPage(videoId);
+            });
+            
+            return card;
+        }
+
+        // Show download page with consistent channel info format
+        function showDownloadPage(videoId) {
+            // Load specific video data from Firebase
+            database.ref('videos/' + videoId).once('value')
+                .then(snapshot => {
+                    const video = snapshot.val();
+                    if (!video) return;
+                    
+                    const downloadPage = document.getElementById('download-page');
+                    
+                    // Create channel logo or initial
+                    let channelLogoContent = '';
+                    if (video.channelLogo) {
+                        channelLogoContent = `<img src="${video.channelLogo}" alt="${video.channel} logo" class="channel-logo">`;
+                    } else {
+                        channelLogoContent = `<div class="channel-initial">${video.channel.charAt(0)}</div>`;
+                    }
+                    
+                    downloadPage.innerHTML = `
+                        <div class="max-w-4xl mx-auto fade-in">
+                            <button id="back-btn" class="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                                </svg>
+                                Back to Videos
+                            </button>
+                            
+                            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                                <div class="aspect-video relative bg-white">
+                                    <img src="${video.image}" 
+                                         alt="${video.title}" 
+                                         class="object-contain w-full h-full bg-white">
+                                </div>
+                                
+                                <div class="p-6">
+                                    <h1 class="text-2xl font-bold text-gray-800 mb-2">${video.title}</h1>
+                                    <div class="flex items-center text-gray-600 mb-6">
+                                        <div class="flex items-center">
+                                            ${channelLogoContent}
+                                            <div class="ml-3">
+                                                <p class="font-medium video-channel-meta">${video.channel} • ${video.views} • ${video.time}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="border-t border-gray-200 pt-6">
+                                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Download Options</h2>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            ${video.downloadLinks ? video.downloadLinks.map(link => `
+                                                <a href="${link.url}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white text-center py-4 px-4 rounded-lg transition duration-300 transform hover:-translate-y-1 shadow-md">
+                                                    <div class="font-semibold text-lg">${link.quality}</div>
+                                                    <div class="text-sm mt-1">Download</div>
+                                                </a>
+                                            `).join('') : '<p class="text-gray-500">Download links not available</p>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event to back button
+                    const backBtn = document.getElementById('back-btn');
+                    if (backBtn) {
+                        backBtn.addEventListener('click', function() {
+                            goBack();
+                        });
+                    }
+                    
+                    showPage('download-page');
+                })
+                .catch(error => {
+                    console.error('Error loading video details:', error);
+                    alert('Error loading video!');
+                });
+        }
+
+        // Show page
+        function showPage(pageId, addToHistory = true) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active-page', 'fade-in');
+            });
+            
+            // Show selected page
+            const page = document.getElementById(pageId);
+            page.classList.add('active-page');
+            
+            // Allow browser to render
+            setTimeout(() => {
+                page.classList.add('fade-in');
+            }, 50);
+            
+            // Add to history
+            if (addToHistory && currentPage !== pageId) {
+                pageHistory.push(pageId);
+                // Add state to browser history
+                window.history.pushState({ page: pageId }, '', `#${pageId}`);
+            }
+            
+            currentPage = pageId;
+            
+            // Scroll to top of page
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Go back
+        function goBack() {
+            if (pageHistory.length > 1) {
+                pageHistory.pop();
+                const prevPage = pageHistory[pageHistory.length - 1];
+                showPage(prevPage, false);
+                // Go back in browser history
+                window.history.back();
+            }
+        }
+
+        // Firebase Realtime Listener - Auto update when new videos are added
+        database.ref('videos').on('value', function(snapshot) {
+            const videos = snapshot.val();
+            const videoGrid = document.getElementById('video-grid');
+            const noVideos = document.getElementById('no-videos');
+            const loadingContainer = document.getElementById('loading-container');
+            
+            loadingContainer.classList.add('hidden');
+            
+            if (videos && Object.keys(videos).length > 0) {
+                videoGrid.classList.remove('hidden');
+                noVideos.classList.add('hidden');
+                
+                // Only update if on homepage
+                if (currentPage === 'home-page') {
+                    videoGrid.innerHTML = '';
+                    
+                    Object.keys(videos).forEach(key => {
+                        const video = videos[key];
+                        video.id = key;
+                        const videoCard = createVideoCard(video);
+                        videoGrid.appendChild(videoCard);
+                    });
+                }
+            } else {
+                videoGrid.classList.add('hidden');
+                noVideos.classList.remove('hidden');
+            }
+        });
+
+        // Firebase Realtime Listener - Auto update when new sliders are added or removed
+        database.ref('sliders').on('value', function(snapshot) {
+            const slidersData = snapshot.val();
+            
+            if (slidersData && Object.keys(slidersData).length > 0) {
+                renderSliders(slidersData);
+            } else {
+                // No sliders in database, hide slider section
+                document.getElementById('slider-section').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>:
