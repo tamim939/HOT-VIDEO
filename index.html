@@ -300,7 +300,7 @@
             
             // Create slider HTML
             sliderSection.innerHTML = `
-                <div class="slider-container bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+                <div class="slider-container bg-white rounded-xl shadow-lg overflow-hidden mb-8 relative">
                     <div class="slider flex transition-transform duration-500 ease-in-out h-full">
                         ${sliders.map((slide, index) => `
                             <div class="slide min-w-full h-full">
@@ -391,7 +391,7 @@
             }
         }
 
-        // Load videos from Firebase
+        // Load videos from Firebase - Modified to show latest videos first
         function loadVideosFromFirebase() {
             const loadingContainer = document.getElementById('loading-container');
             const videoGrid = document.getElementById('video-grid');
@@ -407,9 +407,15 @@
                         videoGrid.classList.remove('hidden');
                         videoGrid.innerHTML = '';
                         
-                        Object.keys(videos).forEach(key => {
+                        // Convert to array and reverse to show latest first
+                        const videoArray = Object.keys(videos).map(key => {
                             const video = videos[key];
                             video.id = key;
+                            return video;
+                        });
+                        
+                        // Reverse the array to show latest videos first
+                        videoArray.reverse().forEach(video => {
                             const videoCard = createVideoCard(video);
                             videoGrid.appendChild(videoCard);
                         });
@@ -581,7 +587,7 @@
             }
         }
 
-        // Firebase Realtime Listener - Auto update when new videos are added
+        // Firebase Realtime Listener - Auto update when new videos are added - Modified to show latest first
         database.ref('videos').on('value', function(snapshot) {
             const videos = snapshot.val();
             const videoGrid = document.getElementById('video-grid');
@@ -598,9 +604,15 @@
                 if (currentPage === 'home-page') {
                     videoGrid.innerHTML = '';
                     
-                    Object.keys(videos).forEach(key => {
+                    // Convert to array and reverse to show latest first
+                    const videoArray = Object.keys(videos).map(key => {
                         const video = videos[key];
                         video.id = key;
+                        return video;
+                    });
+                    
+                    // Reverse the array to show latest videos first
+                    videoArray.reverse().forEach(video => {
                         const videoCard = createVideoCard(video);
                         videoGrid.appendChild(videoCard);
                     });
@@ -624,4 +636,4 @@
         });
     </script>
 </body>
-</html>:
+</html>
