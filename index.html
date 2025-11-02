@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>HOT VIDEO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Firebase SDK -->
@@ -11,19 +11,19 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-
-
-<script type='text/javascript' src='//pl27972695.effectivegatecpm.com/95/0e/b4/950eb46b72a34c17cf2900c987b10f20.js'></script>
-
-
-
-
-
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
         
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f9fafb;
             perspective: 1000px;
+            touch-action: manipulation;
         }
         
         .scrollbar-hide::-webkit-scrollbar {
@@ -104,9 +104,8 @@
             overflow: hidden;
         }
         
-        .video-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+        .video-card:active {
+            transform: scale(0.98);
         }
         
         .video-thumbnail {
@@ -124,10 +123,6 @@
             aspect-ratio: 16 / 9;
             object-fit: cover;
             transition: transform 0.5s ease;
-        }
-        
-        .video-card:hover .video-thumbnail img {
-            transform: scale(1.05);
         }
         
         .video-duration {
@@ -164,11 +159,6 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            transition: color 0.3s ease;
-        }
-        
-        .video-card:hover .video-title {
-            color: #000000;
         }
         
         /* Combined channel name and metadata in one line */
@@ -177,26 +167,76 @@
             color: #606060;
             margin-bottom: 2px;
         }
-        
-        @media (max-width: 768px) {
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1001;
+            display: none;
+            font-size: 14px;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        /* Mobile responsive improvements */
+        @media (max-width: 640px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
             .video-title {
                 font-size: 14px;
             }
             
             .video-channel-meta {
-                font-size: 13px;
+                font-size: 12px;
             }
             
-            .video-card:hover {
-                transform: translateY(-5px);
+            .channel-logo, .channel-initial {
+                width: 32px;
+                height: 32px;
             }
+            
+            .video-details {
+                gap: 8px;
+                padding: 0 4px 4px;
+            }
+            
+            .toast {
+                font-size: 13px;
+                padding: 10px 16px;
+                bottom: 80px;
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 768px) {
+            .video-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+        }
+
+        /* Prevent zoom on double tap */
+        .video-card {
+            -webkit-tap-highlight-color: transparent;
         }
     </style>
 </head>
 <body class="antialiased">
+    <!-- Toast notification -->
+    <div id="toast" class="toast">Link copied! Share it now</div>
+
     <!-- Navigation Bar -->
     <header class="sticky top-0 bg-white border-b border-gray-200 shadow-sm z-20">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 flex items-center justify-between">
             <div class="flex items-center cursor-pointer" id="home-btn">
                 <img src="https://envs.sh/vmK.jpg/IMG20251031319.jpg" alt="Site Logo" class="site-logo">
             </div>
@@ -204,7 +244,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 pt-4">
         <!-- Homepage -->
         <div id="home-page" class="page active-page fade-in">
             <!-- Slider Section - Will be shown only if sliders exist in database -->
@@ -216,7 +256,7 @@
                 <div class="loading-spinner"></div>
                 <p class="text-gray-600 mt-2">Videos are loading...</p>
             </div>
-            <div id="video-grid" class="video-grid grid grid-cols-1 gap-y-8 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-4 hidden">
+            <div id="video-grid" class="video-grid grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-3 sm:gap-y-6 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-3 hidden">
                 <!-- Video cards will be added here -->
             </div>
             <div id="no-videos" class="text-center py-12 hidden">
@@ -276,7 +316,123 @@
                     showPage(prevPage, false);
                 }
             });
+
+            // Prevent default touch actions
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(e) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
         });
+
+        // Long press functionality
+        function setupLongPress(element, videoId) {
+            let pressTimer;
+            const pressDuration = 600; // milliseconds
+
+            element.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+
+            element.addEventListener('touchstart', function(e) {
+                pressTimer = setTimeout(function() {
+                    copyVideoLink(videoId);
+                }, pressDuration);
+            });
+
+            element.addEventListener('touchend', function() {
+                clearTimeout(pressTimer);
+            });
+
+            element.addEventListener('touchmove', function() {
+                clearTimeout(pressTimer);
+            });
+
+            // Mouse events for desktop
+            element.addEventListener('mousedown', function(e) {
+                if (e.button === 0) { // Left click only
+                    pressTimer = setTimeout(function() {
+                        copyVideoLink(videoId);
+                    }, pressDuration);
+                }
+            });
+
+            element.addEventListener('mouseup', function() {
+                clearTimeout(pressTimer);
+            });
+
+            element.addEventListener('mouseleave', function() {
+                clearTimeout(pressTimer);
+            });
+        }
+
+        // Copy video link to clipboard
+        function copyVideoLink(videoId) {
+            const videoLink = `${window.location.origin}${window.location.pathname}#video-${videoId}`;
+            
+            // Use the Clipboard API if available
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(videoLink).then(function() {
+                    showToast('Link copied! Share it now');
+                }).catch(function(err) {
+                    console.error('Could not copy text: ', err);
+                    fallbackCopyTextToClipboard(videoLink);
+                });
+            } else {
+                // Fallback method
+                fallbackCopyTextToClipboard(videoLink);
+            }
+        }
+
+        // Fallback method for copying text
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast('Link copied! Share it now');
+                } else {
+                    showToast('Failed to copy link');
+                }
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                showToast('Failed to copy link');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        // Show toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            
+            setTimeout(function() {
+                toast.style.display = 'none';
+            }, 3000);
+        }
 
         // Load sliders from Firebase
         function loadSlidersFromFirebase() {
@@ -308,7 +464,7 @@
             
             // Create slider HTML
             sliderSection.innerHTML = `
-                <div class="slider-container bg-white rounded-xl shadow-lg overflow-hidden mb-8 relative">
+                <div class="slider-container bg-white rounded-xl shadow-lg overflow-hidden mb-6 relative">
                     <div class="slider flex transition-transform duration-500 ease-in-out h-full">
                         ${sliders.map((slide, index) => `
                             <div class="slide min-w-full h-full">
@@ -321,20 +477,20 @@
                     </div>
                     
                     ${sliders.length > 1 ? `
-                        <button class="slider-arrow prev absolute top-1/2 left-4 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all">
-                            <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <button class="slider-arrow prev absolute top-1/2 left-2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-8 h-8 flex items-center justify-center shadow-md transition-all">
+                            <svg class="w-4 h-4 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                             </svg>
                         </button>
-                        <button class="slider-arrow next absolute top-1/2 right-4 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all">
-                            <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <button class="slider-arrow next absolute top-1/2 right-2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full w-8 h-8 flex items-center justify-center shadow-md transition-all">
+                            <svg class="w-4 h-4 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                             </svg>
                         </button>
                         
-                        <div class="slider-nav absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                        <div class="slider-nav absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
                             ${sliders.map((_, index) => `
-                                <div class="slider-dot w-3 h-3 rounded-full bg-white bg-opacity-50 cursor-pointer ${index === 0 ? 'bg-opacity-100' : ''}"></div>
+                                <div class="slider-dot w-2 h-2 rounded-full bg-white bg-opacity-50 cursor-pointer ${index === 0 ? 'bg-opacity-100' : ''}"></div>
                             `).join('')}
                         </div>
                     ` : ''}
@@ -396,6 +552,34 @@
             // Auto slide if more than one slide
             if (slides.length > 1) {
                 setInterval(nextSlide, 5000);
+            }
+
+            // Touch swipe support
+            let startX = 0;
+            let endX = 0;
+
+            slider.parentElement.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+            });
+
+            slider.parentElement.addEventListener('touchend', (e) => {
+                endX = e.changedTouches[0].clientX;
+                handleSwipe();
+            });
+
+            function handleSwipe() {
+                const diff = startX - endX;
+                const swipeThreshold = 50;
+
+                if (Math.abs(diff) > swipeThreshold) {
+                    if (diff > 0) {
+                        // Swipe left - next slide
+                        nextSlide();
+                    } else {
+                        // Swipe right - previous slide
+                        prevSlide();
+                    }
+                }
             }
         }
 
@@ -470,10 +654,17 @@
             `;
             
             // Add click event to video card
-            card.addEventListener('click', function() {
-                const videoId = this.getAttribute('data-video-id');
-                showDownloadPage(videoId);
+            card.addEventListener('click', function(e) {
+                // Prevent click if it was a long press
+                if (!this.getAttribute('data-long-press')) {
+                    const videoId = this.getAttribute('data-video-id');
+                    showDownloadPage(videoId);
+                }
+                this.removeAttribute('data-long-press');
             });
+            
+            // Setup long press for sharing
+            setupLongPress(card, video.id);
             
             return card;
         }
@@ -498,7 +689,7 @@
                     
                     downloadPage.innerHTML = `
                         <div class="max-w-4xl mx-auto fade-in">
-                            <button id="back-btn" class="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition">
+                            <button id="back-btn" class="flex items-center text-gray-600 hover:text-gray-800 mb-4 transition active:scale-95">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                                 </svg>
@@ -512,9 +703,9 @@
                                          class="object-contain w-full h-full bg-white">
                                 </div>
                                 
-                                <div class="p-6">
-                                    <h1 class="text-2xl font-bold text-gray-800 mb-2">${video.title}</h1>
-                                    <div class="flex items-center text-gray-600 mb-6">
+                                <div class="p-4">
+                                    <h1 class="text-xl font-bold text-gray-800 mb-2">${video.title}</h1>
+                                    <div class="flex items-center text-gray-600 mb-4">
                                         <div class="flex items-center">
                                             ${channelLogoContent}
                                             <div class="ml-3">
@@ -523,13 +714,13 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="border-t border-gray-200 pt-6">
-                                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Download Options</h2>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="border-t border-gray-200 pt-4">
+                                        <h2 class="text-lg font-semibold text-gray-800 mb-3">Download Options</h2>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             ${video.downloadLinks ? video.downloadLinks.map(link => `
-                                                <a href="${link.url}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white text-center py-4 px-4 rounded-lg transition duration-300 transform hover:-translate-y-1 shadow-md">
-                                                    <div class="font-semibold text-lg">${link.quality}</div>
-                                                    <div class="text-sm mt-1">Download</div>
+                                                <a href="${link.url}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white text-center py-3 px-3 rounded-lg transition active:scale-95 shadow-md">
+                                                    <div class="font-semibold text-base">${link.quality}</div>
+                                                    <div class="text-xs mt-1">Download</div>
                                                 </a>
                                             `).join('') : '<p class="text-gray-500">Download links not available</p>'}
                                         </div>
@@ -551,7 +742,7 @@
                 })
                 .catch(error => {
                     console.error('Error loading video details:', error);
-                    alert('Error loading video!');
+                    showToast('Error loading video!');
                 });
         }
 
